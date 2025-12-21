@@ -70,13 +70,14 @@ class ScryfallAPI:
             print(f"Error en búsqueda fuzzy: {e}")
             return None
 
-    def search_cards_by_query(self, query: str, page: int = 1) -> Dict:
+    def search_cards_by_query(self, query: str, page: int = 1, order: str = 'edhrec') -> Dict:
         """
         Busca cartas usando la sintaxis de búsqueda de Scryfall
 
         Args:
             query: Query de búsqueda (ej: "f:commander c:green")
             page: Número de página
+            order: Orden de resultados (edhrec, name, cmc, usd, etc.)
 
         Returns:
             Diccionario con resultados paginados
@@ -85,7 +86,7 @@ class ScryfallAPI:
         try:
             response = self.session.get(
                 f"{self.BASE_URL}/cards/search",
-                params={'q': query, 'page': page}
+                params={'q': query, 'page': page, 'order': order}
             )
             if response.status_code == 200:
                 return response.json()
@@ -97,6 +98,7 @@ class ScryfallAPI:
     def get_commander_recommendations(self, commander_name: str, colors: List[str], limit: int = 50) -> List[Dict]:
         """
         Busca cartas legales en Commander que compartan colores con el comandante
+        Ordenadas por popularidad en EDHREC
 
         Args:
             commander_name: Nombre del comandante
@@ -104,24 +106,41 @@ class ScryfallAPI:
             limit: Número máximo de cartas a retornar
 
         Returns:
-            Lista de cartas recomendadas
+            Lista de cartas recomendadas ordenadas por popularidad EDHREC
         """
         color_identity = ''.join(sorted(colors))
 
         # Búsqueda de cartas populares en Commander con esos colores
+        # Ordenadas por EDHREC rank (más populares primero)
         queries = [
-            f"legal:commander ci<={color_identity} -t:basic -type:land",  # Hechizos generales
-            f"legal:commander ci<={color_identity} t:creature",  # Criaturas
-            f"legal:commander ci<={color_identity} t:instant OR t:sorcery",  # Instant/Sorcery
-            f"legal:commander ci<={color_identity} t:artifact OR t:enchantment"  # Artefactos/Encantamientos
+            # Staples generales (sol ring, command tower, etc)
+            f"legal:commander ci<={color_identity} -t:basic -t:land",
+            # Criaturas populares
+            f"legal:commander ci<={color_identity} t:creature",
+            # Instants y Sorceries
+            f"legal:commander ci<={color_identity} (t:instant OR t:sorcery)",
+            # Artefactos y Encantamientos
+            f"legal:commander ci<={color_identity} (t:artifact OR t:enchantment) -t:creature",
         ]
 
         all_cards = []
+        cards_per_category = limit // len(queries)
+
         for query in queries:
-            result = self.search_cards_by_query(query)
-            all_cards.extend(result.get('data', [])[:limit // 4])
+            # Ordena por EDHREC rank (más populares primero)
+            result = self.search_cards_by_query(query, order='edhrec')
+            category_cards = result.get('data', [])[:cards_per_category]
+            all_cards.extend(category_cards)
+
             if len(all_cards) >= limit:
                 break
+
+        # Si necesitamos más cartas, añade una búsqueda general
+        if len(all_cards) < limit:
+            remaining = limit - len(all_cards)
+            general_query = f"legal:commander ci<={color_identity} -t:basic"
+            result = self.search_cards_by_query(general_query, order='edhrec')
+            all_cards.extend(result.get('data', [])[:remaining])
 
         return all_cards[:limit]
 

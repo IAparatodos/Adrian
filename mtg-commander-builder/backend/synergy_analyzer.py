@@ -208,9 +208,10 @@ class SynergyAnalyzer:
                        top_n: int = 20) -> List[Dict]:
         """
         Encuentra las cartas candidatas con mejor sinergia para el mazo
+        Da peso extra a cartas que sinergicen con el comandante
 
         Args:
-            deck_cards: Cartas actuales en el mazo
+            deck_cards: Cartas actuales en el mazo (incluye comandante)
             candidate_cards: Cartas candidatas a añadir
             top_n: Número de mejores cartas a retornar
 
@@ -218,6 +219,14 @@ class SynergyAnalyzer:
             Lista de cartas ordenadas por score combinado (sinergia + popularidad)
         """
         scored_cards = []
+
+        # Identifica el comandante (primera carta o la que sea Legendary Creature)
+        commander = None
+        for card in deck_cards:
+            type_line = card.get('type_line', '').lower()
+            if 'legendary' in type_line and 'creature' in type_line:
+                commander = card
+                break
 
         for candidate in candidate_cards:
             # Evita duplicados
@@ -227,11 +236,19 @@ class SynergyAnalyzer:
             score = self.calculate_synergy_score(candidate, deck_cards)
             themes = self.get_card_themes(candidate)
 
+            # Bonus: Da peso extra a sinergia con el comandante
+            if commander:
+                commander_synergy = self._compare_cards(candidate, commander)
+                # Bonus de hasta 15% si hay muy buena sinergia con comandante
+                commander_bonus = (commander_synergy / 100) * 15
+                score = min(score + commander_bonus, 100.0)
+
             # Calcula score de popularidad basado en EDHREC rank
             popularity_score = self._calculate_popularity_score(candidate)
 
-            # Score final combinado: 80% sinergia + 20% popularidad
-            combined_score = (score * 0.8) + (popularity_score * 0.2)
+            # Score final combinado: 75% sinergia + 25% popularidad
+            # (Mayor peso a sinergia para priorizar compatibilidad con el mazo)
+            combined_score = (score * 0.75) + (popularity_score * 0.25)
 
             scored_cards.append({
                 'card': candidate,
