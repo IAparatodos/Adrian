@@ -18,7 +18,7 @@ class SynergyAnalyzer:
         'tribal': ['elf', 'goblin', 'dragon', 'zombie', 'vampire', 'merfolk', 'angel', 'demon'],
         'tokens': ['token', 'create.*creature'],
         'graveyard': ['graveyard', 'return.*from.*graveyard', 'flashback', 'delve'],
-        'counter': ['+1/+1 counter', 'proliferate', 'counter'],
+        'counter': [r'\+1/\+1 counter', 'proliferate', 'counter'],  # Escapado con r'' y \+
         'combat': ['double strike', 'first strike', 'trample', 'menace', 'vigilance'],
         'etb': ['enters the battlefield', 'when.*enters'],
         'sacrifice': ['sacrifice', 'dies', 'when.*dies'],
