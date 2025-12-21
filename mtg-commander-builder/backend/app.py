@@ -71,13 +71,13 @@ def get_recommendations():
     JSON body:
         deck_cards: Lista de nombres de cartas en el mazo
         commander: Nombre del comandante
-        budget_max: Presupuesto máximo por carta (EUR)
+        total_budget: Presupuesto total del mazo (EUR)
         num_recommendations: Número de recomendaciones (default: 20)
     """
     data = request.json
     deck_card_names = data.get('deck_cards', [])
     commander_name = data.get('commander')
-    budget_max = data.get('budget_max')
+    total_budget = data.get('total_budget')
     num_recommendations = data.get('num_recommendations', 20)
 
     if not commander_name:
@@ -90,36 +90,66 @@ def get_recommendations():
 
     # Busca las cartas del mazo
     deck_cards = []
+    current_deck_cost = 0.0
+
     for card_name in deck_card_names:
         card = scryfall.search_card(card_name)
         if card:
             deck_cards.append(card)
+            # Calcula costo actual del mazo
+            prices = scryfall.get_card_price(card)
+            card_price = prices.get('eur') or prices.get('usd') or 0
+            current_deck_cost += card_price
+
+    # Añade costo del comandante
+    commander_prices = scryfall.get_card_price(commander)
+    commander_price = commander_prices.get('eur') or commander_prices.get('usd') or 0
+    current_deck_cost += commander_price
 
     # Añade el comandante a las cartas de referencia
     deck_cards.append(commander)
 
+    # Calcula presupuesto restante
+    budget_remaining = None
+    if total_budget:
+        budget_remaining = total_budget - current_deck_cost
+        if budget_remaining < 0:
+            return jsonify({'error': f'El mazo actual ya supera el presupuesto (Costo actual: {current_deck_cost:.2f} EUR)'}), 400
+
     # Obtiene colores del comandante
     colors = commander.get('color_identity', [])
 
-    # Busca candidatos
+    # Busca más candidatos para tener mejor selección
     candidate_cards = scryfall.get_commander_recommendations(
         commander_name,
         colors,
-        limit=100
+        limit=200
     )
 
-    # Aplica filtro de presupuesto si está definido
-    if budget_max:
-        filtered_candidates = []
-        for card in candidate_cards:
-            prices = scryfall.get_card_price(card)
-            card_price = prices.get('eur') or prices.get('usd')
-            if card_price and card_price <= budget_max:
-                filtered_candidates.append(card)
-        candidate_cards = filtered_candidates
+    # Filtra candidatos con precio
+    candidates_with_prices = []
+    for card in candidate_cards:
+        prices = scryfall.get_card_price(card)
+        card_price = prices.get('eur') or prices.get('usd')
+
+        # Solo incluye cartas con precio conocido
+        if card_price is not None:
+            card['_price'] = card_price
+            candidates_with_prices.append(card)
 
     # Analiza sinergias
-    recommendations = synergy.find_synergies(deck_cards, candidate_cards, top_n=num_recommendations)
+    recommendations = synergy.find_synergies(deck_cards, candidates_with_prices, top_n=num_recommendations * 3)
+
+    # Si hay presupuesto, optimiza selección
+    if budget_remaining:
+        recommendations = optimize_recommendations_for_budget(
+            recommendations,
+            budget_remaining,
+            num_recommendations,
+            len(deck_cards) - 1  # -1 porque deck_cards incluye el comandante
+        )
+    else:
+        recommendations = recommendations[:num_recommendations]
 
     # Formatea respuesta
     result = []
@@ -145,8 +175,62 @@ def get_recommendations():
             'name': commander.get('name'),
             'colors': commander.get('color_identity', []),
             'image_uri': commander.get('image_uris', {}).get('small') if commander.get('image_uris') else None
+        },
+        'budget_info': {
+            'current_cost': round(current_deck_cost, 2),
+            'total_budget': total_budget,
+            'remaining': round(budget_remaining, 2) if budget_remaining else None
         }
     })
+
+
+def optimize_recommendations_for_budget(recommendations, budget_remaining, num_recs, current_deck_size):
+    """
+    Optimiza las recomendaciones para que se ajusten al presupuesto total
+    Prioriza cartas con mejor ratio sinergia/precio
+    """
+    # Cartas objetivo para un mazo completo (100 - tamaño actual)
+    cards_needed = 100 - current_deck_size
+
+    # Si necesitamos menos cartas de las que pedimos, ajusta
+    num_recs = min(num_recs, cards_needed)
+
+    # Calcula presupuesto promedio por carta
+    avg_budget_per_card = budget_remaining / cards_needed if cards_needed > 0 else budget_remaining
+
+    # Filtra cartas que están muy por encima del presupuesto promedio
+    # Permite cierta flexibilidad (hasta 3x el promedio)
+    max_card_price = min(avg_budget_per_card * 3, budget_remaining)
+
+    affordable_recs = []
+    for rec in recommendations:
+        card_price = rec['card'].get('_price', 0)
+        if card_price <= max_card_price:
+            # Calcula ratio valor/precio (sinergia dividida por precio)
+            if card_price > 0:
+                rec['value_ratio'] = rec['synergy_score'] / card_price
+            else:
+                rec['value_ratio'] = rec['synergy_score'] * 100
+            affordable_recs.append(rec)
+
+    # Ordena por mejor ratio valor/precio, pero mantiene algo de peso en sinergia pura
+    # 70% peso en sinergia, 30% en ratio valor/precio
+    affordable_recs.sort(
+        key=lambda x: (x['synergy_score'] * 0.7) + (x['value_ratio'] * 0.3),
+        reverse=True
+    )
+
+    # Selecciona cartas asegurando no superar presupuesto
+    selected = []
+    total_cost = 0.0
+
+    for rec in affordable_recs:
+        card_price = rec['card'].get('_price', 0)
+        if total_cost + card_price <= budget_remaining and len(selected) < num_recs:
+            selected.append(rec)
+            total_cost += card_price
+
+    return selected
 
 
 @app.route('/api/calculate-deck-cost', methods=['POST'])

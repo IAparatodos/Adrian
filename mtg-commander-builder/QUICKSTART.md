@@ -53,8 +53,9 @@ python app.py
    - Haz click en "Buscar"
    - O prueba "Comandante Aleatorio"
 
-3. **Define presupuesto** (opcional):
-   - Ejemplo: "5.00" para cartas de máximo 5 EUR
+3. **Define presupuesto total** (opcional):
+   - Ejemplo: "150" para un mazo de máximo 150 EUR
+   - Verás el costo actual y presupuesto restante
 
 4. **Añade algunas cartas** que ya tengas en mente:
    - "Sol Ring"

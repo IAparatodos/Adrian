@@ -12,10 +12,12 @@ Una aplicación web moderna para construir mazos de Commander con recomendacione
   - Texto de habilidades
   - Curva de maná
   - Temas y arquetipos (tribal, tokens, graveyard, etc.)
-- 💰 **Gestión de Presupuesto**:
+- 💰 **Gestión de Presupuesto Inteligente**:
   - Precios en tiempo real de CardMarket (EUR)
-  - Filtro por precio máximo por carta
-  - Cálculo automático del costo total del mazo
+  - Define presupuesto total para el mazo completo (ej: 150 EUR)
+  - Cálculo automático del costo actual
+  - Muestra presupuesto restante en tiempo real
+  - Optimización de recomendaciones por ratio sinergia/precio
 - 🎲 **Comandante Aleatorio**: Descubre nuevos comandantes
 - 🎨 **Interfaz Moderna**: Diseño responsive con tema oscuro
 
@@ -83,11 +85,17 @@ Hay dos formas de elegir tu comandante:
 - **Búsqueda manual**: Escribe el nombre del comandante (ej: "Atraxa, Praetors' Voice")
 - **Aleatorio**: Haz click en "Comandante Aleatorio" para descubrir opciones
 
-### 2. Define tu Presupuesto (Opcional)
+### 2. Define tu Presupuesto Total (Opcional)
 
-- Establece un precio máximo por carta en EUR
-- Las recomendaciones solo mostrarán cartas dentro de tu presupuesto
-- Deja vacío para ver todas las opciones
+- Establece un presupuesto total para todo el mazo (ej: 150 EUR)
+- El sistema calcula automáticamente:
+  - Costo actual del mazo (comandante + cartas añadidas)
+  - Presupuesto restante disponible
+- Las recomendaciones se optimizan para:
+  - No superar el presupuesto total
+  - Maximizar ratio sinergia/precio
+  - Distribuir inteligentemente el presupuesto entre las cartas
+- Deja vacío para ver todas las opciones sin límite
 
 ### 3. Añade Cartas al Mazo
 
@@ -138,17 +146,27 @@ Busca una carta por nombre
 - **Respuesta**: Datos completos de la carta
 
 ### `POST /api/get-recommendations`
-Obtiene recomendaciones de cartas
+Obtiene recomendaciones de cartas optimizadas por sinergia y presupuesto
 - **Body**:
   ```json
   {
     "deck_cards": ["carta1", "carta2"],
     "commander": "nombre_comandante",
-    "budget_max": 5.0,
+    "total_budget": 150.0,
     "num_recommendations": 20
   }
   ```
-- **Respuesta**: Lista de cartas recomendadas con scores
+- **Respuesta**: Lista de cartas recomendadas con scores y información de presupuesto
+  ```json
+  {
+    "recommendations": [...],
+    "budget_info": {
+      "current_cost": 45.50,
+      "total_budget": 150.0,
+      "remaining": 104.50
+    }
+  }
+  ```
 
 ### `POST /api/calculate-deck-cost`
 Calcula el costo total del mazo
@@ -168,7 +186,9 @@ Obtiene un comandante aleatorio
 Busca comandantes por colores
 - **Query params**: `colors` (string, ej: "W,U,B")
 
-## Algoritmo de Sinergias
+## Algoritmos
+
+### Análisis de Sinergias
 
 El analizador de sinergias evalúa múltiples factores:
 
@@ -191,6 +211,22 @@ El analizador de sinergias evalúa múltiples factores:
 5. **Curva de Maná (10%)**: Equilibrio de costes de maná
 
 **Score final**: 0-100% indicando compatibilidad total
+
+### Optimización de Presupuesto
+
+Cuando defines un presupuesto total, el sistema:
+
+1. **Calcula costo actual**: Suma el precio del comandante y todas las cartas añadidas
+2. **Determina presupuesto restante**: Total - Costo actual
+3. **Calcula presupuesto promedio por carta**: Restante / (100 - cartas actuales)
+4. **Filtra candidatos**: Elimina cartas que excedan 3x el promedio
+5. **Optimiza selección**:
+   - Calcula ratio valor/precio para cada carta (sinergia / precio)
+   - Pondera: 70% sinergia + 30% ratio valor/precio
+   - Selecciona cartas hasta llenar el presupuesto
+6. **Resultado**: Máxima sinergia sin exceder presupuesto total
+
+Esto asegura que obtengas el mejor mazo posible dentro de tu presupuesto.
 
 ## Limitaciones y Consideraciones
 

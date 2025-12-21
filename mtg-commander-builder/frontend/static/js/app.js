@@ -6,7 +6,8 @@
 const state = {
     commander: null,
     deckCards: [],
-    budgetMax: null,
+    totalBudget: null,
+    currentCost: 0,
 };
 
 // Configuración de la API
@@ -18,8 +19,9 @@ const elements = {
     searchCommanderBtn: document.getElementById('search-commander-btn'),
     randomCommanderBtn: document.getElementById('random-commander-btn'),
     commanderDisplay: document.getElementById('commander-display'),
-    budgetMax: document.getElementById('budget-max'),
-    totalBudget: document.getElementById('total-budget'),
+    totalBudgetInput: document.getElementById('total-budget-input'),
+    currentCost: document.getElementById('current-cost'),
+    budgetRemaining: document.getElementById('budget-remaining'),
     cardInput: document.getElementById('card-input'),
     addCardBtn: document.getElementById('add-card-btn'),
     deckList: document.getElementById('deck-list'),
@@ -60,7 +62,7 @@ async function searchCard(cardName) {
     return response.json();
 }
 
-async function getRecommendations(deckCards, commander, budgetMax, numRecs) {
+async function getRecommendations(deckCards, commander, totalBudget, numRecs) {
     const response = await fetch(`${API_BASE}/api/get-recommendations`, {
         method: 'POST',
         headers: {
@@ -69,7 +71,7 @@ async function getRecommendations(deckCards, commander, budgetMax, numRecs) {
         body: JSON.stringify({
             deck_cards: deckCards.map(c => c.name),
             commander: commander,
-            budget_max: budgetMax,
+            total_budget: totalBudget,
             num_recommendations: numRecs,
         }),
     });
@@ -223,6 +225,7 @@ async function handleSearchCommander() {
         const commander = await searchCard(commanderName);
         state.commander = commander;
         renderCommander(commander);
+        updateBudget(); // Actualiza presupuesto con el comandante
         showToast(`Comandante encontrado: ${commander.name}`, 'success');
     } catch (error) {
         showToast(error.message, 'error');
@@ -238,6 +241,7 @@ async function handleRandomCommander() {
         state.commander = commander;
         elements.commanderInput.value = commander.name;
         renderCommander(commander);
+        updateBudget(); // Actualiza presupuesto con el comandante
         showToast(`Comandante aleatorio: ${commander.name}`, 'success');
     } catch (error) {
         showToast(error.message, 'error');
@@ -303,7 +307,7 @@ async function handleGetRecommendations() {
         return;
     }
 
-    const budgetMaxValue = elements.budgetMax.value ? parseFloat(elements.budgetMax.value) : null;
+    const totalBudgetValue = elements.totalBudgetInput.value ? parseFloat(elements.totalBudgetInput.value) : null;
     const numRecs = parseInt(elements.numRecommendations.value);
 
     showLoading();
@@ -311,11 +315,21 @@ async function handleGetRecommendations() {
         const result = await getRecommendations(
             state.deckCards,
             state.commander.name,
-            budgetMaxValue,
+            totalBudgetValue,
             numRecs
         );
         renderRecommendations(result.recommendations);
-        showToast(`${result.recommendations.length} recomendaciones encontradas`, 'success');
+
+        // Actualiza información de presupuesto
+        if (result.budget_info) {
+            showToast(
+                `${result.recommendations.length} recomendaciones encontradas. ` +
+                `Presupuesto restante: ${result.budget_info.remaining ? result.budget_info.remaining.toFixed(2) : '-'} EUR`,
+                'success'
+            );
+        } else {
+            showToast(`${result.recommendations.length} recomendaciones encontradas`, 'success');
+        }
     } catch (error) {
         showToast(error.message, 'error');
     } finally {
@@ -324,14 +338,30 @@ async function handleGetRecommendations() {
 }
 
 async function updateBudget() {
-    if (state.deckCards.length === 0) {
-        elements.totalBudget.textContent = '0.00 EUR';
+    if (state.deckCards.length === 0 && !state.commander) {
+        elements.currentCost.textContent = '0.00 EUR';
+        elements.budgetRemaining.textContent = '-';
+        state.currentCost = 0;
         return;
     }
 
     try {
-        const result = await calculateDeckCost(state.deckCards);
-        elements.totalBudget.textContent = `${result.total_cost.toFixed(2)} EUR`;
+        // Incluye comandante en el cálculo
+        const allCards = state.commander ? [...state.deckCards, state.commander] : state.deckCards;
+        const result = await calculateDeckCost(allCards);
+
+        state.currentCost = result.total_cost;
+        elements.currentCost.textContent = `${result.total_cost.toFixed(2)} EUR`;
+
+        // Calcula presupuesto restante
+        if (state.totalBudget) {
+            const remaining = state.totalBudget - result.total_cost;
+            const color = remaining >= 0 ? 'var(--color-green)' : 'var(--color-red)';
+            elements.budgetRemaining.style.color = color;
+            elements.budgetRemaining.textContent = `${remaining.toFixed(2)} EUR`;
+        } else {
+            elements.budgetRemaining.textContent = '-';
+        }
     } catch (error) {
         console.error('Error calculando presupuesto:', error);
     }
@@ -352,8 +382,9 @@ elements.cardInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') handleAddCard();
 });
 
-elements.budgetMax.addEventListener('change', () => {
-    state.budgetMax = elements.budgetMax.value ? parseFloat(elements.budgetMax.value) : null;
+elements.totalBudgetInput.addEventListener('change', () => {
+    state.totalBudget = elements.totalBudgetInput.value ? parseFloat(elements.totalBudgetInput.value) : null;
+    updateBudget(); // Recalcula presupuesto restante
 });
 
 // Inicialización
