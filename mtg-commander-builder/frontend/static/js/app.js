@@ -182,16 +182,27 @@ function renderRecommendations(recommendations) {
                 .map(theme => `<span class="theme-badge">${theme}</span>`)
                 .join('');
 
+            // Determina qué score mostrar (prioriza combined_score)
+            const displayScore = rec.combined_score || rec.synergy_score;
+            const scoreLabel = rec.combined_score ? 'Score' : 'Sinergia';
+
+            // Información de ranking EDHREC si está disponible
+            const edhrecInfo = rec.edhrec_rank ?
+                `<p style="font-size: 0.8rem; color: var(--text-secondary);">📊 EDHREC Rank: #${rec.edhrec_rank.toLocaleString()}</p>` : '';
+
             return `
                 <div class="recommendation-card">
                     ${rec.image_uri ? `<img src="${rec.image_uri}" alt="${rec.name}">` : ''}
                     <div class="recommendation-header">
                         <h4>${rec.name}</h4>
-                        <span class="synergy-score">${rec.synergy_score}%</span>
+                        <span class="synergy-score" title="Sinergia: ${rec.synergy_score}% | Popularidad: ${rec.popularity_score || 50}%">
+                            ${displayScore.toFixed(0)}%
+                        </span>
                     </div>
                     <p><strong>Coste:</strong> ${rec.mana_cost || 'N/A'}</p>
                     <p><strong>Tipo:</strong> ${rec.type_line}</p>
                     <p><strong>Precio:</strong> ${priceText}</p>
+                    ${edhrecInfo}
                     ${rec.oracle_text ? `<p style="font-size: 0.85rem; margin-top: 8px;">${rec.oracle_text.substring(0, 150)}${rec.oracle_text.length > 150 ? '...' : ''}</p>` : ''}
                     <div class="recommendation-themes">${themeBadges}</div>
                     <button class="add-to-deck-btn" data-card='${JSON.stringify(rec)}'>Añadir al Mazo</button>

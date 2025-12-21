@@ -165,6 +165,9 @@ def get_recommendations():
             'image_uri': card.get('image_uris', {}).get('small') if card.get('image_uris') else None,
             'prices': scryfall.get_card_price(card),
             'synergy_score': round(rec['synergy_score'], 2),
+            'popularity_score': round(rec.get('popularity_score', 50), 2),
+            'combined_score': round(rec.get('combined_score', rec['synergy_score']), 2),
+            'edhrec_rank': card.get('edhrec_rank'),
             'themes': rec['themes'],
             'scryfall_uri': card.get('scryfall_uri')
         })

@@ -215,7 +215,7 @@ class SynergyAnalyzer:
             top_n: Número de mejores cartas a retornar
 
         Returns:
-            Lista de cartas ordenadas por score de sinergia
+            Lista de cartas ordenadas por score combinado (sinergia + popularidad)
         """
         scored_cards = []
 
@@ -227,13 +227,52 @@ class SynergyAnalyzer:
             score = self.calculate_synergy_score(candidate, deck_cards)
             themes = self.get_card_themes(candidate)
 
+            # Calcula score de popularidad basado en EDHREC rank
+            popularity_score = self._calculate_popularity_score(candidate)
+
+            # Score final combinado: 80% sinergia + 20% popularidad
+            combined_score = (score * 0.8) + (popularity_score * 0.2)
+
             scored_cards.append({
                 'card': candidate,
                 'synergy_score': score,
+                'popularity_score': popularity_score,
+                'combined_score': combined_score,
                 'themes': themes
             })
 
-        # Ordena por score
-        scored_cards.sort(key=lambda x: x['synergy_score'], reverse=True)
+        # Ordena por score combinado (sinergia + popularidad)
+        scored_cards.sort(key=lambda x: x['combined_score'], reverse=True)
 
         return scored_cards[:top_n]
+
+    def _calculate_popularity_score(self, card: Dict) -> float:
+        """
+        Calcula score de popularidad basado en EDHREC rank
+
+        Args:
+            card: Carta de Scryfall con campo edhrec_rank
+
+        Returns:
+            Score de popularidad (0-100)
+        """
+        edhrec_rank = card.get('edhrec_rank')
+
+        if edhrec_rank is None:
+            # Sin datos de EDHREC, score neutral
+            return 50.0
+
+        # EDHREC rank: menor número = más popular
+        # Rank 1 = carta más popular
+        # Convertimos a score: cartas top 100 -> score alto
+
+        if edhrec_rank <= 100:
+            return 100.0  # Top 100 cartas más populares
+        elif edhrec_rank <= 500:
+            return 90.0 - ((edhrec_rank - 100) / 400 * 20)  # 90-70
+        elif edhrec_rank <= 1000:
+            return 70.0 - ((edhrec_rank - 500) / 500 * 20)  # 70-50
+        elif edhrec_rank <= 5000:
+            return 50.0 - ((edhrec_rank - 1000) / 4000 * 30)  # 50-20
+        else:
+            return max(20.0 - ((edhrec_rank - 5000) / 10000 * 20), 0)  # 20-0

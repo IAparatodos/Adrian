@@ -210,7 +210,28 @@ El analizador de sinergias evalúa múltiples factores:
    - Storm/spellslinger
 5. **Curva de Maná (10%)**: Equilibrio de costes de maná
 
-**Score final**: 0-100% indicando compatibilidad total
+**Score de sinergia**: 0-100% indicando compatibilidad con tu mazo
+
+### Score de Popularidad
+
+El sistema incorpora datos de **EDHREC** (ranking de popularidad en Commander):
+
+- Cartas **Top 100**: Score de popularidad 100%
+- Cartas **Top 500**: Score 90-70%
+- Cartas **Top 1000**: Score 70-50%
+- Cartas **Top 5000**: Score 50-20%
+- Cartas **menos populares**: Score 20-0%
+
+### Score Final Combinado
+
+Las recomendaciones se ordenan por:
+
+**Score Final = (Sinergia × 80%) + (Popularidad × 20%)**
+
+Esto asegura que obtengas:
+- Cartas con buena sinergia con tu mazo
+- Cartas probadas y populares en la comunidad
+- Balance entre sinergias únicas y staples del formato
 
 ### Optimización de Presupuesto
 
