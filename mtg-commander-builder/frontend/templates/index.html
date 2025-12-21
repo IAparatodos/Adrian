@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Constructor de Mazos de Commander - MTG</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🃏 Constructor de Mazos de Commander</h1>
+            <p class="subtitle">Construye tu mazo perfecto con recomendaciones de sinergia</p>
+        </header>
+
+        <main>
+            <!-- Sección de Comandante -->
+            <section class="card">
+                <h2>1. Selecciona tu Comandante</h2>
+                <div class="commander-search">
+                    <input type="text" id="commander-input" placeholder="Escribe el nombre de tu comandante...">
+                    <button id="search-commander-btn" class="btn btn-primary">Buscar</button>
+                    <button id="random-commander-btn" class="btn btn-secondary">Comandante Aleatorio</button>
+                </div>
+                <div id="commander-display" class="commander-display"></div>
+            </section>
+
+            <!-- Sección de Presupuesto -->
+            <section class="card">
+                <h2>2. Define tu Presupuesto</h2>
+                <div class="budget-controls">
+                    <label for="budget-max">Precio máximo por carta (EUR):</label>
+                    <input type="number" id="budget-max" min="0" step="0.5" placeholder="Ej: 5.00">
+                    <span class="help-text">Deja vacío para sin límite</span>
+                </div>
+                <div class="budget-display">
+                    <p>Presupuesto total del mazo: <span id="total-budget">0.00 EUR</span></p>
+                </div>
+            </section>
+
+            <!-- Sección de Cartas del Mazo -->
+            <section class="card">
+                <h2>3. Cartas en tu Mazo</h2>
+                <div class="deck-controls">
+                    <input type="text" id="card-input" placeholder="Añade una carta al mazo...">
+                    <button id="add-card-btn" class="btn btn-primary">Añadir Carta</button>
+                </div>
+                <div id="deck-list" class="deck-list">
+                    <p class="empty-message">No hay cartas en el mazo. Añade algunas para empezar.</p>
+                </div>
+                <div class="deck-stats">
+                    <p>Cartas en el mazo: <span id="deck-count">0</span>/100</p>
+                </div>
+            </section>
+
+            <!-- Sección de Recomendaciones -->
+            <section class="card">
+                <h2>4. Recomendaciones de Sinergia</h2>
+                <div class="recommendations-controls">
+                    <button id="get-recommendations-btn" class="btn btn-primary btn-large">
+                        Obtener Recomendaciones
+                    </button>
+                    <div class="recommendations-options">
+                        <label for="num-recommendations">Número de recomendaciones:</label>
+                        <select id="num-recommendations">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="30">30</option>
+                            <option value="50">50</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="recommendations-list" class="recommendations-list">
+                    <p class="empty-message">Selecciona un comandante y obtén recomendaciones</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- Loading Spinner -->
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Cargando...</p>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="toast" class="toast hidden"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
